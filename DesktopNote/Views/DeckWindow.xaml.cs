@@ -1,4 +1,3 @@
-
 using DesktopNote.Helpers;
 using DesktopNote.Models;
 using DesktopNote.Services;
@@ -6,6 +5,8 @@ using DesktopNote.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using System;
+using System.Runtime.InteropServices;
 
 namespace DesktopNote.Views;
 
@@ -15,6 +16,25 @@ public sealed partial class DeckWindow : Window
         new MainViewModel();
 
     private Border? _expandedBorder;
+
+    private const int HotKeyIdNewNote = 1001;
+
+    private const uint MOD_ALT = 0x0001;
+    private const uint MOD_CONTROL = 0x0002;
+
+    private const uint VK_N = 0x4E;
+
+    private const uint WM_HOTKEY = 0x0312;
+
+    private delegate IntPtr WndProcDelegate(
+        IntPtr hWnd,
+        uint msg,
+        IntPtr wParam,
+        IntPtr lParam);
+
+    private WndProcDelegate? _wndProcDelegate;
+
+    private IntPtr _oldWndProc;
 
     public DeckWindow()
     {
@@ -31,16 +51,103 @@ public sealed partial class DeckWindow : Window
             this,
             380,
             700);
+
+        RegisterGlobalHotKey();
+
+        Closed += DeckWindow_Closed;
+    }
+
+    private void RegisterGlobalHotKey()
+    {
+        IntPtr hwnd =
+            WinRT.Interop.WindowNative
+                .GetWindowHandle(this);
+
+        _wndProcDelegate =
+            WindowProc;
+
+        _oldWndProc =
+            SetWindowLongPtr(
+                hwnd,
+                GWLP_WNDPROC,
+                Marshal.GetFunctionPointerForDelegate(
+                    _wndProcDelegate));
+
+        bool registered =
+            RegisterHotKey(
+                hwnd,
+                HotKeyIdNewNote,
+                MOD_CONTROL | MOD_ALT,
+                VK_N);
+
+        if (!registered)
+        {
+            _oldWndProc = IntPtr.Zero;
+        }
+    }
+
+    private IntPtr WindowProc(
+        IntPtr hWnd,
+        uint msg,
+        IntPtr wParam,
+        IntPtr lParam)
+    {
+        if (msg == WM_HOTKEY &&
+            wParam.ToInt32() == HotKeyIdNewNote)
+        {
+            DispatcherQueue.TryEnqueue(
+                OpenNewNote);
+
+            return IntPtr.Zero;
+        }
+
+        return CallWindowProc(
+            _oldWndProc,
+            hWnd,
+            msg,
+            wParam,
+            lParam);
+    }
+
+    private void OpenNewNote()
+    {
+        var window =
+            new NoteWindow(ViewModel);
+
+        window.Activate();
+    }
+
+    private void DeckWindow_Closed(
+        object sender,
+        WindowEventArgs args)
+    {
+        IntPtr hwnd =
+            WinRT.Interop.WindowNative
+                .GetWindowHandle(this);
+
+        UnregisterHotKey(
+            hwnd,
+            HotKeyIdNewNote);
+
+        if (_oldWndProc != IntPtr.Zero)
+        {
+            SetWindowLongPtr(
+                hwnd,
+                GWLP_WNDPROC,
+                _oldWndProc);
+
+            _oldWndProc =
+                IntPtr.Zero;
+        }
+
+        _wndProcDelegate = null;
     }
 
     private void NewNote_Click(
         object sender,
         RoutedEventArgs e)
     {
-        var window =
-            new NoteWindow(ViewModel);
-
-        window.Activate();
+        OpenNewNote();
     }
 
     private void Note_Tapped(
@@ -108,19 +215,57 @@ public sealed partial class DeckWindow : Window
         NoteCardHelper.Collapse(border);
     }
 
-    private void ChangeHoveredNoteColor(
-        KeyboardAccelerator sender,
-        KeyboardAcceleratorInvokedEventArgs args)
-    {
-        if (_expandedBorder is null)
-            return;
+    //private void ChangeHoveredNoteColor(
+    //    KeyboardAccelerator sender,
+    //    KeyboardAcceleratorInvokedEventArgs args)
+    //{
+    //    if (_expandedBorder is null)
+    //        return;
 
-        if (_expandedBorder.DataContext
-            is not Note note)
-            return;
+    //    if (_expandedBorder.DataContext
+    //        is not Note note)
+    //        return;
 
-        NoteColorService.Next(note);
+    //    NoteColorService.Next(note);
 
-        args.Handled = true;
-    }
+    //    args.Handled = true;
+    //}
+
+    [DllImport(
+        "user32.dll",
+        SetLastError = true)]
+    private static extern bool RegisterHotKey(
+        IntPtr hWnd,
+        int id,
+        uint fsModifiers,
+        uint vk);
+
+    [DllImport(
+        "user32.dll",
+        SetLastError = true)]
+    private static extern bool UnregisterHotKey(
+        IntPtr hWnd,
+        int id);
+
+    [DllImport(
+        "user32.dll",
+        SetLastError = true,
+        EntryPoint = "SetWindowLongPtrW")]
+    private static extern IntPtr SetWindowLongPtr(
+        IntPtr hWnd,
+        int nIndex,
+        IntPtr dwNewLong);
+
+    [DllImport(
+        "user32.dll",
+        SetLastError = true,
+        EntryPoint = "CallWindowProcW")]
+    private static extern IntPtr CallWindowProc(
+        IntPtr lpPrevWndFunc,
+        IntPtr hWnd,
+        uint Msg,
+        IntPtr wParam,
+        IntPtr lParam);
+
+    private const int GWLP_WNDPROC = -4;
 }
