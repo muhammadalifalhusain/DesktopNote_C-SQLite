@@ -1,5 +1,4 @@
 using DesktopNote.Models;
-using Microsoft.UI.Xaml.Shapes;
 using DesktopNote.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -16,8 +15,8 @@ public sealed partial class DeckWindow : Window
 {
     public MainViewModel ViewModel { get; } = new MainViewModel();
 
-    private const double CollapsedWidth = 280;
-    private const double CollapsedHeight = 42;
+    private const double CollapsedWidth = 165;
+    private const double CollapsedHeight = 80;
     private const double ExpandedWidth = 360;
     private const double ExpandedHeight = 160;
     private const double CollapsedTranslateX = 135;
@@ -239,9 +238,9 @@ public sealed partial class DeckWindow : Window
                     : Visibility.Collapsed;
         }
 
-        if (grid.FindName("NoteHole") is Ellipse hole)
+        if (grid.FindName("NoteTypeLabel") is Viewbox typeLabel)
         {
-            hole.Visibility =
+            typeLabel.Visibility =
                 isExpanded
                     ? Visibility.Collapsed
                     : Visibility.Visible;
