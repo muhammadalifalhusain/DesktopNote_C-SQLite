@@ -7,87 +7,172 @@
     xmlns:converters="using:DesktopNote.Converters"
     Title="DesktopNote">
 
-    <Window.SystemBackdrop>
-        <MicaBackdrop />
-    </Window.SystemBackdrop>
-
-    <Grid Padding="30">
+    <Grid>
 
         <Grid.Resources>
+
             <converters:NoteColorToBrushConverter
                 x:Key="NoteColorConverter" />
+
         </Grid.Resources>
 
-        <StackPanel Spacing="20">
+        <StackPanel
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            Width="380">
 
-            <TextBlock
-                Text="DesktopNote"
-                FontSize="32"
-                FontWeight="SemiBold" />
+            <Border
+                Width="280"
+                HorizontalAlignment="Right"
+                Background="#EDEDED"
+                CornerRadius="12,0,0,12"
+                Padding="12,8"
+                Margin="0,0,0,8">
 
-            <TextBlock
-                Text="Deck"
-                FontSize="20" />
+                <Grid>
 
-            <Button
-                Content="+ New Note"
-                Click="NewNote_Click"
-                HorizontalAlignment="Left" />
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        Text="Notes"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        VerticalAlignment="Center" />
+
+                    <Button
+                        Grid.Column="1"
+                        Content="+"
+                        Width="30"
+                        Height="30"
+                        Padding="0"
+                        Click="NewNote_Click" />
+
+                </Grid>
+
+            </Border>
 
             <ListView
-                ItemsSource="{x:Bind ViewModel.Notes}">
+                x:Name="NotesList"
+                ItemsSource="{x:Bind ViewModel.Notes}"
+                SelectionMode="None"
+                IsItemClickEnabled="False"
+                BorderThickness="0"
+                Padding="0"
+                HorizontalAlignment="Stretch"
+                ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                ContainerContentChanging="NotesList_ContainerContentChanging">
+
+                <ListView.Resources>
+
+                    <SolidColorBrush
+                        x:Key="ListViewItemBackgroundPointerOver"
+                        Color="Transparent" />
+
+                    <SolidColorBrush
+                        x:Key="ListViewItemBackgroundPressed"
+                        Color="Transparent" />
+
+                    <SolidColorBrush
+                        x:Key="ListViewItemBackgroundSelected"
+                        Color="Transparent" />
+
+                    <SolidColorBrush
+                        x:Key="ListViewItemBorderBrushPointerOver"
+                        Color="Transparent" />
+
+                    <SolidColorBrush
+                        x:Key="ListViewItemBorderBrushSelected"
+                        Color="Transparent" />
+
+                    <Thickness
+                        x:Key="ListViewItemBorderThemeThickness">0</Thickness>
+
+                </ListView.Resources>
+
+                <ListView.ItemContainerStyle>
+
+                    <Style TargetType="ListViewItem">
+
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="VerticalContentAlignment" Value="Top" />
+
+                    </Style>
+
+                </ListView.ItemContainerStyle>
 
                 <ListView.ItemTemplate>
 
                     <DataTemplate>
 
-                        <Border
-                            Padding="15"
-                            Margin="0,0,0,10"
-                            CornerRadius="10"
-                            Background="{Binding Color, Converter={StaticResource NoteColorConverter}}"
-                            Tapped="Note_Tapped">
+                        <Grid
+                            Width="380"
+                            HorizontalAlignment="Right">
 
-                            <Grid>
+                            <Border
+                                x:Name="NoteCard"
+                                Width="280"
+                                Height="42"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="0,5,0,5"
+                                Background="{Binding Color, Converter={StaticResource NoteColorConverter}}"
+                                CornerRadius="10"
+                                Tapped="Note_Tapped"
+                                PointerEntered="Note_PointerEntered"
+                                PointerExited="Note_PointerExited">
 
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition />
-                                    <ColumnDefinition
-                                        Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                                <Border.RenderTransform>
 
-                                <StackPanel
-                                    Grid.Column="0"
-                                    Spacing="5">
+                                    <TranslateTransform
+                                        x:Name="NoteCardTransform"
+                                        X="135" />
 
-                                    <TextBlock
-                                        Text="{Binding Title}"
-                                        FontSize="18"
-                                        FontWeight="SemiBold"
-                                        Foreground="Black" />
+                                </Border.RenderTransform>
 
-                                    <TextBlock
-                                        Text="{Binding Content}"
-                                        FontSize="14"
-                                        TextWrapping="Wrap"
-                                        Foreground="Black" />
+                                <Grid>
 
-                                </StackPanel>
+                                    <Ellipse
+                                        x:Name="NoteHole"
+                                        Width="9"
+                                        Height="9"
+                                        Fill="Black"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Margin="5,0,0,0" />
 
-                                <Button
-                                    Grid.Column="1"
-                                    Content="📌"
-                                    Click="Pin_Click"
-                                    Tag="{Binding}"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    Foreground="Black"
-                                    FontSize="18"
-                                    VerticalAlignment="Top" />
+                                    <StackPanel
+                                        x:Name="NoteDetails"
+                                        Visibility="Collapsed"
+                                        VerticalAlignment="Top"
+                                        Margin="28,12,18,12">
 
-                            </Grid>
+                                        <TextBlock
+                                            Text="{Binding Title}"
+                                            FontSize="15"
+                                            FontWeight="SemiBold"
+                                            Foreground="Black"
+                                            TextWrapping="Wrap" />
 
-                        </Border>
+                                        <TextBlock
+                                            Text="{Binding Content}"
+                                            FontSize="13"
+                                            Foreground="Black"
+                                            TextWrapping="Wrap"
+                                            Margin="0,8,0,0" />
+
+                                    </StackPanel>
+
+                                </Grid>
+
+                            </Border>
+
+                        </Grid>
 
                     </DataTemplate>
 
