@@ -17,14 +17,20 @@ public sealed partial class DeckWindow : Window
 
     private Border? _expandedBorder;
 
+    private ManagementWindow? _managementWindow;
+
     private const int HotKeyIdNewNote = 1001;
+    private const int HotKeyIdManagement = 1002;
 
     private const uint MOD_ALT = 0x0001;
     private const uint MOD_CONTROL = 0x0002;
 
     private const uint VK_N = 0x4E;
+    private const uint VK_A = 0x41;
 
     private const uint WM_HOTKEY = 0x0312;
+
+    private const int GWLP_WNDPROC = -4;
 
     private delegate IntPtr WndProcDelegate(
         IntPtr hWnd,
@@ -52,12 +58,12 @@ public sealed partial class DeckWindow : Window
             380,
             700);
 
-        RegisterGlobalHotKey();
+        RegisterGlobalHotKeys();
 
         Closed += DeckWindow_Closed;
     }
 
-    private void RegisterGlobalHotKey()
+    private void RegisterGlobalHotKeys()
     {
         IntPtr hwnd =
             WinRT.Interop.WindowNative
@@ -73,16 +79,49 @@ public sealed partial class DeckWindow : Window
                 Marshal.GetFunctionPointerForDelegate(
                     _wndProcDelegate));
 
-        bool registered =
+        bool newNoteRegistered =
             RegisterHotKey(
                 hwnd,
                 HotKeyIdNewNote,
                 MOD_CONTROL | MOD_ALT,
                 VK_N);
 
-        if (!registered)
+        bool managementRegistered =
+            RegisterHotKey(
+                hwnd,
+                HotKeyIdManagement,
+                MOD_CONTROL | MOD_ALT,
+                VK_A);
+
+        if (!newNoteRegistered ||
+            !managementRegistered)
         {
-            _oldWndProc = IntPtr.Zero;
+            if (newNoteRegistered)
+            {
+                UnregisterHotKey(
+                    hwnd,
+                    HotKeyIdNewNote);
+            }
+
+            if (managementRegistered)
+            {
+                UnregisterHotKey(
+                    hwnd,
+                    HotKeyIdManagement);
+            }
+
+            if (_oldWndProc != IntPtr.Zero)
+            {
+                SetWindowLongPtr(
+                    hwnd,
+                    GWLP_WNDPROC,
+                    _oldWndProc);
+
+                _oldWndProc =
+                    IntPtr.Zero;
+            }
+
+            _wndProcDelegate = null;
         }
     }
 
@@ -92,21 +131,39 @@ public sealed partial class DeckWindow : Window
         IntPtr wParam,
         IntPtr lParam)
     {
-        if (msg == WM_HOTKEY &&
-            wParam.ToInt32() == HotKeyIdNewNote)
+        if (msg == WM_HOTKEY)
         {
-            DispatcherQueue.TryEnqueue(
-                OpenNewNote);
+            int hotKeyId =
+                wParam.ToInt32();
 
-            return IntPtr.Zero;
+            if (hotKeyId == HotKeyIdNewNote)
+            {
+                DispatcherQueue.TryEnqueue(
+                    OpenNewNote);
+
+                return IntPtr.Zero;
+            }
+
+            if (hotKeyId == HotKeyIdManagement)
+            {
+                DispatcherQueue.TryEnqueue(
+                    OpenManagementWindow);
+
+                return IntPtr.Zero;
+            }
         }
 
-        return CallWindowProc(
-            _oldWndProc,
-            hWnd,
-            msg,
-            wParam,
-            lParam);
+        if (_oldWndProc != IntPtr.Zero)
+        {
+            return CallWindowProc(
+                _oldWndProc,
+                hWnd,
+                msg,
+                wParam,
+                lParam);
+        }
+
+        return IntPtr.Zero;
     }
 
     private void OpenNewNote()
@@ -115,6 +172,30 @@ public sealed partial class DeckWindow : Window
             new NoteWindow(ViewModel);
 
         window.Activate();
+    }
+
+    private void OpenManagementWindow()
+    {
+        if (_managementWindow is not null)
+        {
+            _managementWindow.Activate();
+            return;
+        }
+
+        _managementWindow =
+            new ManagementWindow(ViewModel);
+
+        _managementWindow.Closed +=
+            ManagementWindow_Closed;
+
+        _managementWindow.Activate();
+    }
+
+    private void ManagementWindow_Closed(
+        object sender,
+        WindowEventArgs args)
+    {
+        _managementWindow = null;
     }
 
     private void DeckWindow_Closed(
@@ -128,6 +209,10 @@ public sealed partial class DeckWindow : Window
         UnregisterHotKey(
             hwnd,
             HotKeyIdNewNote);
+
+        UnregisterHotKey(
+            hwnd,
+            HotKeyIdManagement);
 
         if (_oldWndProc != IntPtr.Zero)
         {
@@ -148,6 +233,13 @@ public sealed partial class DeckWindow : Window
         RoutedEventArgs e)
     {
         OpenNewNote();
+    }
+
+    private void OpenManagement_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        OpenManagementWindow();
     }
 
     private void Note_Tapped(
@@ -215,22 +307,6 @@ public sealed partial class DeckWindow : Window
         NoteCardHelper.Collapse(border);
     }
 
-    //private void ChangeHoveredNoteColor(
-    //    KeyboardAccelerator sender,
-    //    KeyboardAcceleratorInvokedEventArgs args)
-    //{
-    //    if (_expandedBorder is null)
-    //        return;
-
-    //    if (_expandedBorder.DataContext
-    //        is not Note note)
-    //        return;
-
-    //    NoteColorService.Next(note);
-
-    //    args.Handled = true;
-    //}
-
     [DllImport(
         "user32.dll",
         SetLastError = true)]
@@ -266,6 +342,4 @@ public sealed partial class DeckWindow : Window
         uint Msg,
         IntPtr wParam,
         IntPtr lParam);
-
-    private const int GWLP_WNDPROC = -4;
 }
