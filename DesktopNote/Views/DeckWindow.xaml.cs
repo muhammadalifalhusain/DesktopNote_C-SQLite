@@ -1,3 +1,4 @@
+
 using DesktopNote.Helpers;
 using DesktopNote.Models;
 using DesktopNote.Services;
@@ -246,6 +247,9 @@ public sealed partial class DeckWindow : Window
         object sender,
         TappedRoutedEventArgs e)
     {
+        if (e.Handled)
+            return;
+
         if (sender is not FrameworkElement element)
             return;
 
@@ -258,6 +262,8 @@ public sealed partial class DeckWindow : Window
                 note);
 
         window.Activate();
+
+        e.Handled = true;
     }
 
     private void NotesList_ContainerContentChanging(
@@ -305,6 +311,26 @@ public sealed partial class DeckWindow : Window
         }
 
         NoteCardHelper.Collapse(border);
+    }
+
+    private void CompleteNote_Tapped(
+        object sender,
+        TappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+    }
+
+    private void CompleteNote_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (sender is not Button button)
+            return;
+
+        if (button.DataContext is not Note note)
+            return;
+
+        ViewModel.ToggleCompleted(note);
     }
 
     [DllImport(
