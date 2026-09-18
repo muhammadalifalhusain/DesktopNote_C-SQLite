@@ -7,7 +7,7 @@
     xmlns:converters="using:DesktopNote.Converters"
     Title="DesktopNote">
 
-    <Grid>
+    <Grid Background="Transparent">
 
         <Grid.Resources>
 
@@ -118,7 +118,7 @@
                                 Background="{Binding Color, Converter={StaticResource NoteColorConverter}}"
                                 BorderBrush="Gray"
                                 BorderThickness="1"
-                                CornerRadius="10"
+                                CornerRadius="14"
                                 Tapped="Note_Tapped"
                                 PointerEntered="Note_PointerEntered"
                                 PointerExited="Note_PointerExited">
@@ -139,7 +139,7 @@
                                         HorizontalAlignment="Left"
                                         VerticalAlignment="Stretch"
                                         Background="{Binding Color, Converter={StaticResource NoteColorDarkConverter}}"
-                                        CornerRadius="10,0,0,10">
+                                        CornerRadius="14,0,0,14">
 
                                         <TextBlock
                                             x:Name="NoteTypeText"
@@ -221,11 +221,44 @@
                                                     Content="Done"
                                                     HorizontalAlignment="Left"
                                                     VerticalAlignment="Bottom"
-                                                    Padding="12,5"
-                                                    BorderBrush="Gray"
+                                                    Padding="6,5"
+                                                    Background="Transparent"
+                                                    Foreground="#333333"
+                                                    BorderBrush="#777777"
                                                     BorderThickness="1"
+                                                    CornerRadius="10"
                                                     Click="CompleteNote_Click"
-                                                    Tapped="CompleteNote_Tapped" />
+                                                    Tapped="CompleteNote_Tapped">
+
+                                                    <Button.Resources>
+
+                                                        <SolidColorBrush
+                                                            x:Key="ButtonBackgroundPointerOver"
+                                                            Color="Transparent" />
+
+                                                        <SolidColorBrush
+                                                            x:Key="ButtonBackgroundPressed"
+                                                            Color="Transparent" />
+
+                                                        <SolidColorBrush
+                                                            x:Key="ButtonBorderBrushPointerOver"
+                                                            Color="#777777" />
+
+                                                        <SolidColorBrush
+                                                            x:Key="ButtonBorderBrushPressed"
+                                                            Color="#777777" />
+
+                                                        <SolidColorBrush
+                                                            x:Key="ButtonForegroundPointerOver"
+                                                            Color="#333333" />
+
+                                                        <SolidColorBrush
+                                                            x:Key="ButtonForegroundPressed"
+                                                            Color="#333333" />
+
+                                                    </Button.Resources>
+
+                                                </Button>
 
                                                 <StackPanel
                                                     Grid.Column="1"

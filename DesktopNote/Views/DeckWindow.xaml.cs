@@ -47,19 +47,11 @@ public sealed partial class DeckWindow : Window
     {
         InitializeComponent();
 
-        WindowService.Configure(this);
-
-        WindowService.SetSize(
-            this,
-            380,
-            700);
-
-        WindowService.MoveToRightCenter(
-            this,
-            380,
-            700);
+        WindowService.ConfigureDeck(this);
 
         RegisterGlobalHotKeys();
+
+        Activated += DeckWindow_Activated;
 
         Closed += DeckWindow_Closed;
     }
@@ -227,6 +219,16 @@ public sealed partial class DeckWindow : Window
         }
 
         _wndProcDelegate = null;
+    }
+
+    private void DeckWindow_Activated(
+    object sender,
+    WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState != WindowActivationState.Deactivated)
+        {
+            WindowService.ReapplyBackdrop(this);
+        }
     }
 
     private void NewNote_Click(
