@@ -76,13 +76,33 @@
 
                 <ListView.ItemContainerStyle>
 
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="MinWidth" Value="0" />
-                        <Setter Property="MinHeight" Value="0" />
-                        <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="0" />
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="VerticalContentAlignment" Value="Top" />
+                    <Style
+                        TargetType="ListViewItem">
+
+                        <Setter
+                            Property="MinWidth"
+                            Value="0" />
+
+                        <Setter
+                            Property="MinHeight"
+                            Value="0" />
+
+                        <Setter
+                            Property="Padding"
+                            Value="0" />
+
+                        <Setter
+                            Property="Margin"
+                            Value="0" />
+
+                        <Setter
+                            Property="HorizontalContentAlignment"
+                            Value="Stretch" />
+
+                        <Setter
+                            Property="VerticalContentAlignment"
+                            Value="Top" />
+
                     </Style>
 
                 </ListView.ItemContainerStyle>
@@ -103,8 +123,8 @@
                                 Margin="0,2,0,2"
                                 Background="{Binding Color, Converter={StaticResource NoteColorConverter}}"
                                 BorderBrush="Gray"
-                                BorderThickness="1"
-                                CornerRadius="14"
+                                BorderThickness="1,1,0,1"
+                                CornerRadius="14,0,0,14"
                                 Tapped="Note_Tapped"
                                 PointerEntered="Note_PointerEntered"
                                 PointerExited="Note_PointerExited">
@@ -123,7 +143,7 @@
                                             x:Name="NoteTypeText"
                                             Text="{Binding Type, Converter={StaticResource NoteTypeVerticalConverter}}"
                                             FontFamily="{StaticResource AppFont}"
-                                            FontSize="11"
+                                            FontSize="10"
                                             FontStyle="Italic"
                                             FontWeight="SemiBold"
                                             Foreground="Black"

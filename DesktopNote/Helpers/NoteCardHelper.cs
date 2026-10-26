@@ -1,10 +1,9 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
 using System;
-using System.Runtime.CompilerServices;
+using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace DesktopNote.Helpers;
 
@@ -19,12 +18,42 @@ public static class NoteCardHelper
     public const double CollapsedFontSize = 10;
     public const double ExpandedFontSize = 16;
 
+    public const double CornerRadiusValue = 14;
+    public const double CollapsedRightRadius = 0;
+    public const double ExpandedRightRadius = 14;
+
+    public const double ExpandDurationMs = 260;
+    public const double CollapseDurationMs = 220;
+
     public const int HoveredZIndex = 100;
     public const int DefaultZIndex = 0;
 
-    private static readonly ConditionalWeakTable<Border, Storyboard> Storyboards = new();
+    private sealed class CardAnimation
+    {
+        public Border Border = null!;
+        public TextBlock? TypeText;
+        public StackPanel? Details;
+
+        public double FromWidth;
+        public double ToWidth;
+        public double FromHeight;
+        public double ToHeight;
+        public double FromFont;
+        public double ToFont;
+        public double FromRadius;
+        public double ToRadius;
+
+        public double DurationMs;
+        public long StartTimestamp;
+        public bool Expanding;
+        public Action? Completed;
+    }
+
+    private static readonly Dictionary<Border, CardAnimation> Active = new();
 
     private static Border? _activeBorder;
+
+    private static bool _rendering;
 
     public static void Expand(
         Border border,
@@ -34,7 +63,7 @@ public static class NoteCardHelper
         if (previousBorder is not null &&
             !ReferenceEquals(previousBorder, border))
         {
-            CollapseImmediately(previousBorder);
+            Collapse(previousBorder, null);
         }
 
         _activeBorder = border;
@@ -44,12 +73,14 @@ public static class NoteCardHelper
         SetDetailsVisibility(border, true);
         SetZIndex(border, HoveredZIndex);
 
-        Animate(
+        Start(
             border,
             ExpandedWidth,
             ExpandedHeight,
             ExpandedFontSize,
-            EasingMode.EaseOut,
+            ExpandedRightRadius,
+            true,
+            ExpandDurationMs,
             null);
     }
 
@@ -63,16 +94,19 @@ public static class NoteCardHelper
         }
 
         SetDetailsVisibility(border, false);
-        SetZIndex(border, DefaultZIndex);
 
-        Animate(
+        Start(
             border,
             CollapsedWidth,
             CollapsedHeight,
             CollapsedFontSize,
-            EasingMode.EaseIn,
+            CollapsedRightRadius,
+            false,
+            CollapseDurationMs,
             () =>
             {
+                SetZIndex(border, DefaultZIndex);
+
                 if (_activeBorder is null)
                 {
                     onWidthChanged?.Invoke(CollapsedWidth);
@@ -102,38 +136,237 @@ public static class NoteCardHelper
     public static void Reset(
         Border border)
     {
-        if (Storyboards.TryGetValue(border, out var running))
-        {
-            running.Stop();
-            Storyboards.Remove(border);
-        }
+        Active.Remove(border);
+
+        StopRenderingIfIdle();
 
         border.Width = CollapsedWidth;
         border.Height = CollapsedHeight;
+
+        ApplyShape(border, CollapsedRightRadius);
 
         if (FindTypeText(border) is TextBlock typeText)
         {
             typeText.FontSize = CollapsedFontSize;
         }
 
+        if (FindDetails(border) is StackPanel details)
+        {
+            details.Opacity = 1;
+        }
+
         SetDetailsVisibility(border, false);
         SetZIndex(border, DefaultZIndex);
+    }
+
+    private static void Start(
+        Border border,
+        double width,
+        double height,
+        double fontSize,
+        double rightRadius,
+        bool expanding,
+        double durationMs,
+        Action? completed)
+    {
+        var typeText = FindTypeText(border);
+        var details = FindDetails(border);
+
+        double fromWidth =
+            double.IsNaN(border.Width)
+                ? border.ActualWidth
+                : border.Width;
+
+        double fromHeight =
+            double.IsNaN(border.Height)
+                ? border.ActualHeight
+                : border.Height;
+
+        Active[border] = new CardAnimation
+        {
+            Border = border,
+            TypeText = typeText,
+            Details = details,
+            FromWidth = fromWidth,
+            ToWidth = width,
+            FromHeight = fromHeight,
+            ToHeight = height,
+            FromFont = typeText?.FontSize ?? fontSize,
+            ToFont = fontSize,
+            FromRadius = border.CornerRadius.TopRight,
+            ToRadius = rightRadius,
+            DurationMs = durationMs,
+            StartTimestamp = Stopwatch.GetTimestamp(),
+            Expanding = expanding,
+            Completed = completed
+        };
+
+        if (expanding && details is not null)
+        {
+            details.Opacity = 0;
+        }
+
+        if (!_rendering)
+        {
+            CompositionTarget.Rendering += OnRendering;
+            _rendering = true;
+        }
+    }
+
+    private static void OnRendering(
+        object? sender,
+        object e)
+    {
+        long now = Stopwatch.GetTimestamp();
+
+        List<CardAnimation>? finished = null;
+
+        foreach (var animation in Active.Values)
+        {
+            double elapsedMs =
+                (now - animation.StartTimestamp) *
+                1000.0 /
+                Stopwatch.Frequency;
+
+            double t =
+                Math.Clamp(
+                    elapsedMs / animation.DurationMs,
+                    0,
+                    1);
+
+            double eased =
+                animation.Expanding
+                    ? EaseOutQuart(t)
+                    : EaseInOutCubic(t);
+
+            Apply(animation, eased, t);
+
+            if (t >= 1)
+            {
+                finished ??= new List<CardAnimation>();
+                finished.Add(animation);
+            }
+        }
+
+        if (finished is not null)
+        {
+            foreach (var animation in finished)
+            {
+                Active.Remove(animation.Border);
+            }
+
+            foreach (var animation in finished)
+            {
+                animation.Completed?.Invoke();
+            }
+        }
+
+        StopRenderingIfIdle();
+    }
+
+    private static void Apply(
+        CardAnimation animation,
+        double eased,
+        double linear)
+    {
+        var border = animation.Border;
+
+        border.Width =
+            Lerp(animation.FromWidth, animation.ToWidth, eased);
+
+        border.Height =
+            Lerp(animation.FromHeight, animation.ToHeight, eased);
+
+        ApplyShape(
+            border,
+            Lerp(animation.FromRadius, animation.ToRadius, eased));
+
+        if (animation.TypeText is not null)
+        {
+            animation.TypeText.FontSize =
+                Lerp(animation.FromFont, animation.ToFont, eased);
+        }
+
+        if (animation.Expanding && animation.Details is not null)
+        {
+            animation.Details.Opacity =
+                Math.Clamp((linear - 0.35) / 0.65, 0, 1);
+        }
+    }
+
+    private static void ApplyShape(
+        Border border,
+        double rightRadius)
+    {
+        double radius =
+            Math.Clamp(rightRadius, 0, CornerRadiusValue);
+
+        border.CornerRadius =
+            new CornerRadius(
+                CornerRadiusValue,
+                radius,
+                radius,
+                CornerRadiusValue);
+
+        border.BorderThickness =
+            new Thickness(
+                1,
+                1,
+                radius / CornerRadiusValue,
+                1);
+    }
+
+    private static void StopRenderingIfIdle()
+    {
+        if (_rendering && Active.Count == 0)
+        {
+            CompositionTarget.Rendering -= OnRendering;
+            _rendering = false;
+        }
+    }
+
+    private static double Lerp(
+        double from,
+        double to,
+        double t)
+    {
+        return from + (to - from) * t;
+    }
+
+    private static double EaseOutQuart(
+        double t)
+    {
+        return 1 - Math.Pow(1 - t, 4);
+    }
+
+    private static double EaseInOutCubic(
+        double t)
+    {
+        return t < 0.5
+            ? 4 * t * t * t
+            : 1 - Math.Pow(-2 * t + 2, 3) / 2;
     }
 
     private static void SetDetailsVisibility(
         Border border,
         bool expanded)
     {
-        if (border.Child is not Grid grid)
-            return;
-
-        if (grid.FindName("NoteDetails") is StackPanel details)
+        if (FindDetails(border) is StackPanel details)
         {
             details.Visibility =
                 expanded
                     ? Visibility.Visible
                     : Visibility.Collapsed;
         }
+    }
+
+    private static StackPanel? FindDetails(
+        Border border)
+    {
+        if (border.Child is not Grid grid)
+            return null;
+
+        return grid.FindName("NoteDetails") as StackPanel;
     }
 
     private static TextBlock? FindTypeText(
@@ -171,85 +404,5 @@ public static class NoteCardHelper
         }
 
         return null;
-    }
-
-    private static DoubleAnimation CreateAnimation(
-        DependencyObject target,
-        string property,
-        double to,
-        Duration duration,
-        EasingFunctionBase easing)
-    {
-        var animation = new DoubleAnimation
-        {
-            To = to,
-            Duration = duration,
-            EasingFunction = easing,
-            EnableDependentAnimation = true
-        };
-
-        Storyboard.SetTarget(animation, target);
-        Storyboard.SetTargetProperty(animation, property);
-
-        return animation;
-    }
-
-    private static void Animate(
-        Border border,
-        double width,
-        double height,
-        double fontSize,
-        EasingMode easingMode,
-        Action? onCompleted)
-    {
-        var duration = new Duration(TimeSpan.FromMilliseconds(180));
-
-        var easing = new CubicEase
-        {
-            EasingMode = easingMode
-        };
-
-        var storyboard = new Storyboard();
-
-        storyboard.Children.Add(
-            CreateAnimation(border, "Width", width, duration, easing));
-
-        storyboard.Children.Add(
-            CreateAnimation(border, "Height", height, duration, easing));
-
-        var typeText = FindTypeText(border);
-
-        if (typeText is not null)
-        {
-            storyboard.Children.Add(
-                CreateAnimation(typeText, "FontSize", fontSize, duration, easing));
-        }
-
-        Storyboards.Remove(border);
-        Storyboards.Add(border, storyboard);
-
-        storyboard.Completed += (_, _) =>
-        {
-            if (!Storyboards.TryGetValue(border, out var current) ||
-                !ReferenceEquals(current, storyboard))
-            {
-                return;
-            }
-
-            storyboard.Stop();
-            Storyboards.Remove(border);
-
-            border.Width = width;
-            border.Height = height;
-
-            if (typeText is not null)
-            {
-                typeText.FontSize = fontSize;
-            }
-
-            onCompleted?.Invoke();
-        };
-
-        storyboard.Begin();
     }
 }
