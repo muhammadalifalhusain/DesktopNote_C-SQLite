@@ -29,9 +29,16 @@
         </Grid.Resources>
 
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+
+            <RowDefinition
+                Height="Auto" />
+
+            <RowDefinition
+                Height="Auto" />
+
+            <RowDefinition
+                Height="*" />
+
         </Grid.RowDefinitions>
 
         <Grid
@@ -42,11 +49,13 @@
 
                 <TextBlock
                     Text="All Notes"
+                    FontFamily="{StaticResource AppFont}"
                     FontSize="28"
                     FontWeight="SemiBold" />
 
                 <TextBlock
                     Text="Kelola seluruh catatan Anda"
+                    FontFamily="{StaticResource AppFont}"
                     Opacity="0.65"
                     FontSize="13" />
 
@@ -55,6 +64,7 @@
             <Button
                 x:Name="NewNoteButton"
                 Content="+ New Note"
+                FontFamily="{StaticResource AppFont}"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
                 Click="NewNote_Click" />
@@ -68,6 +78,7 @@
             <TextBox
                 x:Name="SearchTextBox"
                 PlaceholderText="Cari catatan..."
+                FontFamily="{StaticResource AppFont}"
                 TextChanged="SearchTextBox_TextChanged" />
 
             <ScrollViewer
@@ -81,36 +92,43 @@
                     <Button
                         Content="All"
                         Tag="ALL"
+                        FontFamily="{StaticResource AppFont}"
                         Click="Filter_Click" />
 
                     <Button
                         Content="Note"
                         Tag="NOTE"
+                        FontFamily="{StaticResource AppFont}"
                         Click="Filter_Click" />
 
                     <Button
                         Content="Task"
                         Tag="TASK"
+                        FontFamily="{StaticResource AppFont}"
                         Click="Filter_Click" />
 
                     <Button
                         Content="Reminder"
                         Tag="RMNDR"
+                        FontFamily="{StaticResource AppFont}"
                         Click="Filter_Click" />
 
                     <Button
                         Content="Checklist"
                         Tag="CHKLST"
+                        FontFamily="{StaticResource AppFont}"
                         Click="Filter_Click" />
 
                     <Button
                         Content="Idea"
                         Tag="IDEA"
+                        FontFamily="{StaticResource AppFont}"
                         Click="Filter_Click" />
 
                     <Button
                         Content="Meeting"
                         Tag="MTING"
+                        FontFamily="{StaticResource AppFont}"
                         Click="Filter_Click" />
 
                 </StackPanel>
@@ -143,10 +161,19 @@
                                 RowSpacing="10">
 
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
+
+                                    <RowDefinition
+                                        Height="Auto" />
+
+                                    <RowDefinition
+                                        Height="Auto" />
+
+                                    <RowDefinition
+                                        Height="Auto" />
+
+                                    <RowDefinition
+                                        Height="Auto" />
+
                                 </Grid.RowDefinitions>
 
                                 <Grid
@@ -154,6 +181,7 @@
 
                                     <TextBlock
                                         Text="{Binding Title}"
+                                        FontFamily="{StaticResource AppFont}"
                                         FontSize="18"
                                         FontWeight="SemiBold"
                                         Foreground="Black"
@@ -162,6 +190,7 @@
                                     <TextBlock
                                         HorizontalAlignment="Right"
                                         Text="{Binding Type}"
+                                        FontFamily="{StaticResource AppFont}"
                                         FontSize="11"
                                         FontWeight="SemiBold"
                                         Foreground="Black"
@@ -172,6 +201,7 @@
                                 <TextBlock
                                     Grid.Row="1"
                                     Text="{Binding Content}"
+                                    FontFamily="{StaticResource AppFont}"
                                     FontSize="13"
                                     Foreground="Black"
                                     TextWrapping="Wrap"
@@ -184,12 +214,14 @@
 
                                     <TextBlock
                                         Text="Tenggat:"
+                                        FontFamily="{StaticResource AppFont}"
                                         FontWeight="SemiBold"
                                         Foreground="Black"
                                         Visibility="{Binding ReminderAt, Converter={StaticResource ReminderVisibilityConverter}}" />
 
                                     <TextBlock
                                         Text="{Binding ReminderAt, Converter={StaticResource DateTimeToStringConverter}}"
+                                        FontFamily="{StaticResource AppFont}"
                                         Foreground="Black"
                                         Visibility="{Binding ReminderAt, Converter={StaticResource ReminderVisibilityConverter}}" />
 
@@ -204,11 +236,13 @@
                                     <Button
                                         Content="Edit"
                                         Tag="{Binding}"
+                                        FontFamily="{StaticResource AppFont}"
                                         Click="EditNote_Click" />
 
                                     <Button
                                         Content="Delete"
                                         Tag="{Binding}"
+                                        FontFamily="{StaticResource AppFont}"
                                         Click="DeleteNote_Click" />
 
                                 </StackPanel>
@@ -226,6 +260,7 @@
             <TextBlock
                 x:Name="EmptyTextBlock"
                 Text="Belum ada catatan."
+                FontFamily="{StaticResource AppFont}"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 FontSize="15"

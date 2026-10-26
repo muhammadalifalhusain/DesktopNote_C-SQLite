@@ -1,4 +1,6 @@
-﻿using DesktopNote.Models;
+﻿
+using DesktopNote.Data;
+using DesktopNote.Models;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -7,186 +9,145 @@ namespace DesktopNote.ViewModels;
 
 public class MainViewModel
 {
-    public ObservableCollection<Note> Notes { get; set; }
+    private readonly NoteDatabase _database;
+
+    public ObservableCollection<Note> Notes { get; }
+    public ObservableCollection<Note> ActiveNotes { get; }
 
     public MainViewModel()
     {
-        Notes = new ObservableCollection<Note>();
+        _database = new NoteDatabase();
 
-        Notes.Add(new Note
-        {
-            Id = 1,
-            Title = "Catatan Pertama",
-            Content = "Ini adalah catatan pertama saya.",
-            Type = NoteType.Note,
-            Color = NoteColor.Butter,
-            IsPinned = true,
-            IsArchived = false,
-            IsCompleted = false,
-            ReminderAt = null,
-            CreatedAt = DateTime.Now.AddDays(-2),
-            UpdatedAt = DateTime.Now.AddHours(-1)
-        });
+        var notes = _database
+            .GetNotes()
+            .ToList();
 
-        Notes.Add(new Note
-        {
-            Id = 2,
-            Title = "Belanja Mingguan",
-            Content = "Beli susu, roti, kopi, telur, dan sabun.",
-            Type = NoteType.Checklist,
-            Color = NoteColor.Yellow,
-            IsPinned = false,
-            IsArchived = false,
-            IsCompleted = false,
-            ReminderAt = null,
-            CreatedAt = DateTime.Now.AddDays(-1),
-            UpdatedAt = DateTime.Now.AddHours(-2)
-        });
+        Notes = new ObservableCollection<Note>(
+            notes);
 
-        Notes.Add(new Note
-        {
-            Id = 3,
-            Title = "Selesaikan UI Dashboard",
-            Content = "Merapikan tampilan dashboard dan menyelesaikan bagian card note.",
-            Type = NoteType.Task,
-            Color = NoteColor.Butter,
-            IsPinned = true,
-            IsArchived = false,
-            IsCompleted = false,
-            ReminderAt = null,
-            CreatedAt = DateTime.Now.AddDays(-3),
-            UpdatedAt = DateTime.Now.AddMinutes(-30)
-        });
-
-        Notes.Add(new Note
-        {
-            Id = 4,
-            Title = "Meeting dengan Tim",
-            Content = "Membahas progress aplikasi DesktopNote dan pembagian tugas berikutnya.",
-            Type = NoteType.Meeting,
-            Color = NoteColor.Yellow,
-            IsPinned = false,
-            IsArchived = false,
-            IsCompleted = false,
-            ReminderAt = null,
-            CreatedAt = DateTime.Now.AddDays(-1),
-            UpdatedAt = DateTime.Now.AddHours(-3)
-        });
-
-        Notes.Add(new Note
-        {
-            Id = 5,
-            Title = "Pengingat",
-            Content = "Jangan lupa mengirim laporan sebelum sore.",
-            Type = NoteType.Reminder,
-            Color = NoteColor.Butter,
-            IsPinned = false,
-            IsArchived = false,
-            IsCompleted = false,
-            ReminderAt = DateTime.Now.AddHours(3),
-            CreatedAt = DateTime.Now.AddHours(-5),
-            UpdatedAt = DateTime.Now.AddHours(-1)
-        });
-
-        Notes.Add(new Note
-        {
-            Id = 6,
-            Title = "Ide Fitur Baru",
-            Content = "Tambahkan fitur pencarian, filter berdasarkan tipe, dan shortcut keyboard.",
-            Type = NoteType.Idea,
-            Color = NoteColor.Yellow,
-            IsPinned = false,
-            IsArchived = false,
-            IsCompleted = false,
-            ReminderAt = null,
-            CreatedAt = DateTime.Now.AddDays(-4),
-            UpdatedAt = DateTime.Now.AddHours(-4)
-        });
-
-        Notes.Add(new Note
-        {
-            Id = 7,
-            Title = "Task Selesai",
-            Content = "Membuat struktur model Note dan menambahkan dummy data.",
-            Type = NoteType.Task,
-            Color = NoteColor.Butter,
-            IsPinned = false,
-            IsArchived = false,
-            IsCompleted = true,
-            ReminderAt = null,
-            CreatedAt = DateTime.Now.AddDays(-5),
-            UpdatedAt = DateTime.Now.AddDays(-1)
-        });
-
-        SortNotes();
+        ActiveNotes = new ObservableCollection<Note>(
+            notes
+                .Where(note => !note.IsCompleted)
+                .OrderByDescending(note => note.IsPinned)
+                .ThenByDescending(note => note.UpdatedAt));
     }
+
     public Note AddNote(
         string title,
         string content,
-        NoteType type = NoteType.Note)
+        NoteType type,
+        NoteColor color)
+    {
+        var note = new Note
         {
-            int nextId = Notes.Count == 0
-                ? 1
-                : Notes.Max(note => note.Id) + 1;
+            Title = title,
+            Content = content,
+            Type = type,
+            Color = color,
+            IsPinned = false,
+            IsArchived = false,
+            IsCompleted = false,
+            ReminderAt = null,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
 
-            var note = new Note
-            {
-                Id = nextId,
-                Title = title,
-                Content = content,
-                Type = type,
-                Color = NoteColor.Butter,
-                IsPinned = false,
-                IsArchived = false,
-                IsCompleted = false,
-                ReminderAt = null,
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now
-            };
+        _database.InsertNote(note);
 
-            Notes.Add(note);
+        Notes.Add(note);
+        ActiveNotes.Add(note);
 
-            SortNotes();
+        SortNotes();
+        SortActiveNotes();
 
-            return note;
+        return note;
     }
 
     public void UpdateNote(
         Note note,
         string title,
         string content,
-        NoteType type)
+        NoteType type,
+        NoteColor color)
     {
         note.Title = title;
         note.Content = content;
         note.Type = type;
+        note.Color = color;
         note.UpdatedAt = DateTime.Now;
 
+        _database.UpdateNote(note);
+
         SortNotes();
+        SortActiveNotes();
     }
 
-    public void TogglePin(Note note)
+    public void UpdateColor(
+        Note note,
+        NoteColor color)
+    {
+        note.Color = color;
+        note.UpdatedAt = DateTime.Now;
+
+        _database.UpdateNote(note);
+
+        SortNotes();
+        SortActiveNotes();
+    }
+
+    public void TogglePin(
+        Note note)
     {
         note.IsPinned = !note.IsPinned;
         note.UpdatedAt = DateTime.Now;
 
+        _database.UpdateNote(note);
+
         SortNotes();
+        SortActiveNotes();
     }
 
-    public void ToggleCompleted(Note note)
+    public void ToggleCompleted(
+        Note note)
     {
         note.IsCompleted = !note.IsCompleted;
         note.UpdatedAt = DateTime.Now;
 
+        _database.UpdateNote(note);
+
+        if (note.IsCompleted)
+        {
+            ActiveNotes.Remove(note);
+        }
+        else if (!ActiveNotes.Contains(note))
+        {
+            ActiveNotes.Add(note);
+        }
+
         SortNotes();
+        SortActiveNotes();
     }
 
-    public void SetReminder(Note note, DateTime? reminderAt)
+    public void SetReminder(
+        Note note,
+        DateTime? reminderAt)
     {
         note.ReminderAt = reminderAt;
         note.UpdatedAt = DateTime.Now;
 
+        _database.UpdateNote(note);
+
         SortNotes();
+        SortActiveNotes();
+    }
+
+    public void DeleteNote(
+        Note note)
+    {
+        _database.DeleteNote(note.Id);
+
+        Notes.Remove(note);
+        ActiveNotes.Remove(note);
     }
 
     private void SortNotes()
@@ -201,6 +162,22 @@ public class MainViewModel
         foreach (var note in sortedNotes)
         {
             Notes.Add(note);
+        }
+    }
+
+    private void SortActiveNotes()
+    {
+        var sortedNotes = ActiveNotes
+            .Where(note => !note.IsCompleted)
+            .OrderByDescending(note => note.IsPinned)
+            .ThenByDescending(note => note.UpdatedAt)
+            .ToList();
+
+        ActiveNotes.Clear();
+
+        foreach (var note in sortedNotes)
+        {
+            ActiveNotes.Add(note);
         }
     }
 }

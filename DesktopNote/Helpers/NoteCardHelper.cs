@@ -1,29 +1,35 @@
-﻿
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using System;
+using System.Runtime.CompilerServices;
 
 namespace DesktopNote.Helpers;
 
 public static class NoteCardHelper
 {
-    public const double CollapsedWidth = 179;
+    public const double CollapsedWidth = 44;
     public const double CollapsedHeight = 76;
 
     public const double ExpandedWidth = 360;
     public const double ExpandedHeight = 160;
 
-    public const double CollapsedTranslateX = 135;
-    public const double ExpandedTranslateX = 0;
+    public const double CollapsedFontSize = 10;
+    public const double ExpandedFontSize = 16;
 
     public const int HoveredZIndex = 100;
     public const int DefaultZIndex = 0;
 
+    private static readonly ConditionalWeakTable<Border, Storyboard> Storyboards = new();
+
+    private static Border? _activeBorder;
+
     public static void Expand(
         Border border,
-        Border? previousBorder)
+        Border? previousBorder,
+        Action<double>? onWidthChanged = null)
     {
         if (previousBorder is not null &&
             !ReferenceEquals(previousBorder, border))
@@ -31,74 +37,87 @@ public static class NoteCardHelper
             CollapseImmediately(previousBorder);
         }
 
-        SetDetailsVisibility(
-            border,
-            true);
+        _activeBorder = border;
 
-        SetZIndex(
-            border,
-            HoveredZIndex);
+        onWidthChanged?.Invoke(ExpandedWidth);
+
+        SetDetailsVisibility(border, true);
+        SetZIndex(border, HoveredZIndex);
 
         Animate(
             border,
-            ExpandedTranslateX,
             ExpandedWidth,
             ExpandedHeight,
-            EasingMode.EaseOut);
+            ExpandedFontSize,
+            EasingMode.EaseOut,
+            null);
     }
 
     public static void Collapse(
-        Border border)
+        Border border,
+        Action<double>? onWidthChanged = null)
     {
-        SetDetailsVisibility(
-            border,
-            false);
+        if (ReferenceEquals(_activeBorder, border))
+        {
+            _activeBorder = null;
+        }
 
-        SetZIndex(
-            border,
-            DefaultZIndex);
+        SetDetailsVisibility(border, false);
+        SetZIndex(border, DefaultZIndex);
 
         Animate(
             border,
-            CollapsedTranslateX,
             CollapsedWidth,
             CollapsedHeight,
-            EasingMode.EaseIn);
+            CollapsedFontSize,
+            EasingMode.EaseIn,
+            () =>
+            {
+                if (_activeBorder is null)
+                {
+                    onWidthChanged?.Invoke(CollapsedWidth);
+                }
+            });
     }
 
     public static void CollapseImmediately(
         Border border)
     {
-        SetZIndex(
-            border,
-            DefaultZIndex);
+        if (ReferenceEquals(_activeBorder, border))
+        {
+            _activeBorder = null;
+        }
 
         Reset(border);
+    }
+
+    public static void Release(
+        Action<double>? onWidthChanged = null)
+    {
+        _activeBorder = null;
+
+        onWidthChanged?.Invoke(CollapsedWidth);
     }
 
     public static void Reset(
         Border border)
     {
-        border.Width =
-            CollapsedWidth;
-
-        border.Height =
-            CollapsedHeight;
-
-        if (border.RenderTransform
-            is TranslateTransform transform)
+        if (Storyboards.TryGetValue(border, out var running))
         {
-            transform.X =
-                CollapsedTranslateX;
+            running.Stop();
+            Storyboards.Remove(border);
         }
 
-        SetDetailsVisibility(
-            border,
-            false);
+        border.Width = CollapsedWidth;
+        border.Height = CollapsedHeight;
 
-        SetZIndex(
-            border,
-            DefaultZIndex);
+        if (FindTypeText(border) is TextBlock typeText)
+        {
+            typeText.FontSize = CollapsedFontSize;
+        }
+
+        SetDetailsVisibility(border, false);
+        SetZIndex(border, DefaultZIndex);
     }
 
     private static void SetDetailsVisibility(
@@ -108,8 +127,7 @@ public static class NoteCardHelper
         if (border.Child is not Grid grid)
             return;
 
-        if (grid.FindName("NoteDetails")
-            is StackPanel details)
+        if (grid.FindName("NoteDetails") is StackPanel details)
         {
             details.Visibility =
                 expanded
@@ -118,128 +136,119 @@ public static class NoteCardHelper
         }
     }
 
+    private static TextBlock? FindTypeText(
+        Border border)
+    {
+        if (border.Child is not Grid grid)
+            return null;
+
+        return grid.FindName("NoteTypeText") as TextBlock;
+    }
+
     private static void SetZIndex(
         Border border,
         int zIndex)
     {
-        var item =
-            FindListViewItem(border);
+        var item = FindListViewItem(border);
 
         if (item is not null)
         {
-            Canvas.SetZIndex(
-                item,
-                zIndex);
+            Canvas.SetZIndex(item, zIndex);
         }
     }
 
     private static ListViewItem? FindListViewItem(
         DependencyObject element)
     {
-        DependencyObject? current =
-            element;
+        DependencyObject? current = element;
 
         while (current is not null)
         {
             if (current is ListViewItem item)
                 return item;
 
-            current =
-                VisualTreeHelper.GetParent(current);
+            current = VisualTreeHelper.GetParent(current);
         }
 
         return null;
     }
 
+    private static DoubleAnimation CreateAnimation(
+        DependencyObject target,
+        string property,
+        double to,
+        Duration duration,
+        EasingFunctionBase easing)
+    {
+        var animation = new DoubleAnimation
+        {
+            To = to,
+            Duration = duration,
+            EasingFunction = easing,
+            EnableDependentAnimation = true
+        };
+
+        Storyboard.SetTarget(animation, target);
+        Storyboard.SetTargetProperty(animation, property);
+
+        return animation;
+    }
+
     private static void Animate(
         Border border,
-        double translateX,
         double width,
         double height,
-        EasingMode easingMode)
+        double fontSize,
+        EasingMode easingMode,
+        Action? onCompleted)
     {
-        if (border.RenderTransform
-            is not TranslateTransform transform)
-        {
-            transform =
-                new TranslateTransform();
+        var duration = new Duration(TimeSpan.FromMilliseconds(180));
 
-            border.RenderTransform =
-                transform;
+        var easing = new CubicEase
+        {
+            EasingMode = easingMode
+        };
+
+        var storyboard = new Storyboard();
+
+        storyboard.Children.Add(
+            CreateAnimation(border, "Width", width, duration, easing));
+
+        storyboard.Children.Add(
+            CreateAnimation(border, "Height", height, duration, easing));
+
+        var typeText = FindTypeText(border);
+
+        if (typeText is not null)
+        {
+            storyboard.Children.Add(
+                CreateAnimation(typeText, "FontSize", fontSize, duration, easing));
         }
 
-        var duration =
-            new Duration(
-                TimeSpan.FromMilliseconds(180));
+        Storyboards.Remove(border);
+        Storyboards.Add(border, storyboard);
 
-        var easing =
-            new CubicEase
+        storyboard.Completed += (_, _) =>
+        {
+            if (!Storyboards.TryGetValue(border, out var current) ||
+                !ReferenceEquals(current, storyboard))
             {
-                EasingMode = easingMode
-            };
+                return;
+            }
 
-        var storyboard =
-            new Storyboard();
+            storyboard.Stop();
+            Storyboards.Remove(border);
 
-        var positionAnimation =
-            new DoubleAnimation
+            border.Width = width;
+            border.Height = height;
+
+            if (typeText is not null)
             {
-                To = translateX,
-                Duration = duration,
-                EasingFunction = easing,
-                EnableDependentAnimation = true
-            };
+                typeText.FontSize = fontSize;
+            }
 
-        Storyboard.SetTarget(
-            positionAnimation,
-            transform);
-
-        Storyboard.SetTargetProperty(
-            positionAnimation,
-            "X");
-
-        var widthAnimation =
-            new DoubleAnimation
-            {
-                To = width,
-                Duration = duration,
-                EasingFunction = easing,
-                EnableDependentAnimation = true
-            };
-
-        Storyboard.SetTarget(
-            widthAnimation,
-            border);
-
-        Storyboard.SetTargetProperty(
-            widthAnimation,
-            "Width");
-
-        var heightAnimation =
-            new DoubleAnimation
-            {
-                To = height,
-                Duration = duration,
-                EasingFunction = easing,
-                EnableDependentAnimation = true
-            };
-
-        Storyboard.SetTarget(
-            heightAnimation,
-            border);
-
-        Storyboard.SetTargetProperty(
-            heightAnimation,
-            "Height");
-
-        storyboard.Children.Add(
-            positionAnimation);
-
-        storyboard.Children.Add(
-            widthAnimation);
-
-        storyboard.Children.Add(
-            heightAnimation);
+            onCompleted?.Invoke();
+        };
 
         storyboard.Begin();
     }

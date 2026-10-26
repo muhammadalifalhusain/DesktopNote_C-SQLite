@@ -13,13 +13,13 @@ public class NoteTypeDateTimeVisibilityConverter : IValueConverter
     object parameter,
     string language)
     {
-        if (value is not NoteType type)
-            return Visibility.Collapsed;
-    return type == NoteType.TASK ||
-           type == NoteType.RMNDR ||
-           type == NoteType.MTING
-        ? Visibility.Visible
-        : Visibility.Collapsed;
+       if (value is not NoteType type)
+         return Visibility.Collapsed;
+         return type == NoteType.TASK ||
+         type == NoteType.RMNDR ||
+         type == NoteType.MTING
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     public object ConvertBack(

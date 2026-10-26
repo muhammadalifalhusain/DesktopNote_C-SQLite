@@ -1,4 +1,3 @@
-
 using DesktopNote.Helpers;
 using DesktopNote.Models;
 using DesktopNote.Services;
@@ -16,9 +15,13 @@ public sealed partial class DeckWindow : Window
     public MainViewModel ViewModel { get; } =
         new MainViewModel();
 
+    private readonly DeckWindowSizer _sizer;
+
     private Border? _expandedBorder;
 
     private ManagementWindow? _managementWindow;
+
+    private const double CardSlotSpacing = 4;
 
     private const int HotKeyIdNewNote = 1001;
     private const int HotKeyIdManagement = 1002;
@@ -49,11 +52,46 @@ public sealed partial class DeckWindow : Window
 
         WindowService.ConfigureDeck(this);
 
+        _sizer =
+            new DeckWindowSizer(this);
+
+        ApplySize(NoteCardHelper.CollapsedWidth);
+
+        ViewModel.ActiveNotes.CollectionChanged +=
+            (_, _) =>
+            {
+                if (_expandedBorder is null)
+                {
+                    ApplySize(NoteCardHelper.CollapsedWidth);
+                }
+            };
+
         RegisterGlobalHotKeys();
 
         Activated += DeckWindow_Activated;
 
         Closed += DeckWindow_Closed;
+    }
+
+    private void ApplySize(double width)
+    {
+        int count = ViewModel.ActiveNotes.Count;
+
+        double collapsedSlot =
+            NoteCardHelper.CollapsedHeight + CardSlotSpacing;
+
+        double expandedSlot =
+            NoteCardHelper.ExpandedHeight + CardSlotSpacing;
+
+        bool expanded =
+            width > NoteCardHelper.CollapsedWidth && count > 0;
+
+        double height =
+            expanded
+                ? (count - 1) * collapsedSlot + expandedSlot
+                : count * collapsedSlot;
+
+        _sizer.SetSize(width, height);
     }
 
     private void RegisterGlobalHotKeys()
@@ -222,8 +260,8 @@ public sealed partial class DeckWindow : Window
     }
 
     private void DeckWindow_Activated(
-    object sender,
-    WindowActivatedEventArgs args)
+        object sender,
+        WindowActivatedEventArgs args)
     {
         if (args.WindowActivationState != WindowActivationState.Deactivated)
         {
@@ -292,7 +330,8 @@ public sealed partial class DeckWindow : Window
 
         NoteCardHelper.Expand(
             border,
-            _expandedBorder);
+            _expandedBorder,
+            ApplySize);
 
         _expandedBorder =
             border;
@@ -312,7 +351,9 @@ public sealed partial class DeckWindow : Window
             _expandedBorder = null;
         }
 
-        NoteCardHelper.Collapse(border);
+        NoteCardHelper.Collapse(
+            border,
+            ApplySize);
     }
 
     private void CompleteNote_Tapped(
@@ -332,7 +373,12 @@ public sealed partial class DeckWindow : Window
         if (button.DataContext is not Note note)
             return;
 
+        _expandedBorder = null;
+
         ViewModel.ToggleCompleted(note);
+
+        NoteCardHelper.Release(
+            ApplySize);
     }
 
     [DllImport(

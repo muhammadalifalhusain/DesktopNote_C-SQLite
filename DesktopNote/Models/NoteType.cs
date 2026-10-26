@@ -2,10 +2,10 @@
 
 public enum NoteType
 {
-    Note,
-    Task,
-    Reminder,
-    Checklist,
-    Idea,
-    Meeting
+    NOTE,
+    TASK,
+    RMNDR,
+    LIST,
+    IDEA,
+    MTING
 }
